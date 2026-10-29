@@ -2,14 +2,14 @@
 
 A website form that scores every inquiry from 1 to 10 with Claude, logs it in Google Sheets, and sends a Gmail alert when the score is 7 or higher, with a draft reply.
 
-**See the case study:** open `index.html` or this repository's GitHub Pages site.
+**See the case study:** https://fernando7885.github.io/calificador-leads/
 
-## How to use it
-1. In n8n: **Import from File** → `ai-lead-scorer-n8n.json`.
-2. *Claude scores the lead* node: create a **Header Auth** credential named `x-api-key` with your Anthropic API key.
-3. *Save to Google Sheets* node: connect your account and paste the URL of a sheet with a tab called `Leads` and these columns in row 1:
-   `date, name, email, company, budget, message, score, category, reason, suggested_reply`
-4. *Notify me via Gmail* node: connect your account and replace `YOUR_EMAIL@gmail.com`.
-5. Click **Execute workflow** and submit the form.
+**Get the ready-to-import template + step-by-step setup guide:** https://fernandovibes8251.gumroad.com/l/tpsnjg
 
-The JSON contains no API keys or personal data.
+## How it works
+1. A built-in n8n form collects name, email, company, budget and message.
+2. Claude scores the lead (1-10), labels it hot / warm / cold, explains why and drafts a reply.
+3. Every lead is logged in Google Sheets.
+4. Hot leads (score 7+) trigger a Gmail alert.
+
+Built with n8n, the Anthropic API (Claude Haiku), Google Sheets and Gmail.
