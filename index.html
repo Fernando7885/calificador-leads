@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AI Lead Scorer</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: case study column (~68ch) with a horizontal pipeline strip and full-width evidence figures */
+:root {
+  --bg: #f5f6f7;
+  --surface: #ffffff;
+  --fg: #16201f;
+  --muted: #5b6766;
+  --line: #dde2e1;
+  --accent: #0e6b66;
+  --hot: #d9541e;
+  --warm: #c18a12;
+  --cold: #4a6fa5;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1514; --surface: #172120; --fg: #e6eceb; --muted: #9aa8a6; --line: #2a3634;
+    --accent: #4fbfb6; --hot: #f07a45; --warm: #e0b043; --cold: #8eaee0; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1514; --surface: #172120; --fg: #e6eceb; --muted: #9aa8a6; --line: #2a3634;
+  --accent: #4fbfb6; --hot: #f07a45; --warm: #e0b043; --cold: #8eaee0; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 17px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 980px; margin: 0 auto; padding-block: 56px 80px; display: grid; gap: 64px; }
+.prose { max-width: 68ch; }
+h1, h2 { font-family: var(--display); text-wrap: balance; margin: 0; line-height: 1.1; }
+h1 { font-size: clamp(2.2rem, 6vw, 3.6rem); font-weight: 700; letter-spacing: -0.02em; }
+h2 { font-size: 1.6rem; font-weight: 700; margin-bottom: 12px; }
+p { margin: 0 0 14px; }
+.eyebrow { font-family: var(--mono); font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); margin-bottom: 14px; }
+.lede { font-size: 1.2rem; color: var(--muted); margin-top: 18px; max-width: 60ch; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+.chip { font-family: var(--mono); font-size: 0.8rem; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); }
+
+/* Pipeline */
+.pipe { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; }
+.step { flex: 1 1 150px; min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+.step b { display: block; font-family: var(--display); font-size: 1.05rem; }
+.step span { font-size: 0.88rem; color: var(--muted); }
+.step.ai { border-color: var(--accent); }
+.arrow { align-self: center; color: var(--muted); font-family: var(--mono); }
+@media (max-width: 720px) { .arrow { display: none; } }
+
+/* Score scale */
+.scale { margin-top: 20px; }
+.bar { position: relative; height: 14px; border-radius: 7px; background: linear-gradient(90deg, var(--cold), var(--warm) 55%, var(--hot)); }
+.cut { position: absolute; left: calc((7 - 1) / 9 * 100%); top: -6px; bottom: -6px; width: 2px; background: var(--fg); }
+.ticks { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 0.75rem; color: var(--muted); margin-top: 6px; font-variant-numeric: tabular-nums; }
+.cutlabel { font-family: var(--mono); font-size: 0.8rem; color: var(--fg); margin-top: 4px; }
+
+/* Results table */
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 0.95rem; }
+th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+tr:last-child td { border-bottom: 0; }
+td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 1.1rem; }
+.pill { font-family: var(--mono); font-size: 0.78rem; padding: 2px 9px; border-radius: 999px; color: #fff; white-space: nowrap; }
+.pill.hot { background: var(--hot); } .pill.warm { background: var(--warm); } .pill.cold { background: var(--cold); }
+:root[data-theme="dark"] .pill, :root:not([data-theme="light"]) .pill { color: var(--bg); }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .pill { color: #fff; } }
+:root[data-theme="light"] .pill { color: #fff; }
+
+/* Figures */
+figure { margin: 0; display: grid; gap: 10px; }
+figure img { width: 100%; border: 1px solid var(--line); border-radius: 10px; display: block; background: var(--surface); }
+figcaption { font-size: 0.9rem; color: var(--muted); }
+.figs { display: grid; gap: 32px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+@media (max-width: 720px) { .two { grid-template-columns: 1fr; } }
+
+ul.plain { margin: 0; padding-left: 1.1em; display: grid; gap: 6px; }
+.note { font-size: 0.9rem; color: var(--muted); border-top: 1px solid var(--line); padding-top: 20px; }
+a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <div class="eyebrow">Case study · AI automation</div>
+    <h1>AI Lead Scorer</h1>
+    <p class="lede">A website form that scores every inquiry from 1 to 10 within seconds, logs it in a spreadsheet, and sends an email alert only when a lead is worth a fast reply, with a draft response already written.</p>
+    <div class="meta">
+      <span class="chip">n8n</span>
+      <span class="chip">Claude (Anthropic API)</span>
+      <span class="chip">Google Sheets</span>
+      <span class="chip">Gmail</span>
+    </div>
+  </header>
+
+  <figure>
+    <img src="img/demo.gif" alt="Animated demo: the form is filled in, n8n runs the workflow with every node green, and the lead appears scored in the spreadsheet" width="1366" height="551">
+    <figcaption>Live demo: a contact submits the form, the workflow runs, and the lead lands in the sheet with a score of 9, "hot". Recorded on the Spanish-language version.</figcaption>
+  </figure>
+
+  <section class="prose">
+    <h2>The problem</h2>
+    <p>Agencies and freelancers get inquiries of very different quality: clients with budget and urgency mixed with vague messages and spam. Reviewing them one by one takes time, and good leads go cold when nobody replies the same day.</p>
+  </section>
+
+  <section>
+    <div class="prose">
+      <h2>The solution</h2>
+      <p>A six-step n8n workflow. Claude reads the form data and returns a score, a category, the reason, and a reply email in the contact's language. Every lead is logged; the Gmail alert only fires when the score is 7 or higher.</p>
+    </div>
+    <div class="pipe" style="margin-top:20px">
+      <div class="step"><b>Form</b><span>Name, email, company, budget and message</span></div>
+      <div class="arrow">→</div>
+      <div class="step ai"><b>Claude scores</b><span>Score 1–10, category, reason and suggested reply</span></div>
+      <div class="arrow">→</div>
+      <div class="step"><b>Format data</b><span>Merges the AI output with the form</span></div>
+      <div class="arrow">→</div>
+      <div class="step"><b>Google Sheets</b><span>One row per lead</span></div>
+      <div class="arrow">→</div>
+      <div class="step"><b>Score ≥ 7?</b><span>Hot leads trigger a Gmail alert</span></div>
+    </div>
+    <div class="scale prose">
+      <div class="bar" role="img" aria-label="Score scale from 1 to 10 with the alert threshold at 7"><div class="cut"></div></div>
+      <div class="ticks"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span></div>
+      <div class="cutlabel">Alert threshold: 7. Below it, the lead is logged without interrupting anyone.</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="prose">
+      <h2>Test with four leads</h2>
+      <p>Four test submissions with different profiles. Claude separated them with no hand-written rules, reading budget, need and urgency.</p>
+    </div>
+    <div class="table-wrap" style="margin-top:16px">
+      <table>
+        <thead><tr><th>Contact</th><th>Budget</th><th>Message</th><th>Score</th><th>Category</th><th>Alert?</th></tr></thead>
+        <tbody>
+          <tr><td>Veterinary clinic</td><td>Over USD 10,000</td><td>WhatsApp appointment booking for 3 locations, starting November</td><td class="num">9</td><td><span class="pill hot">hot</span></td><td>Yes</td></tr>
+          <tr><td>Online store</td><td>USD 2,000 – 10,000</td><td>WhatsApp support, 200 inquiries a day, needed this month</td><td class="num">8</td><td><span class="pill hot">hot</span></td><td>Yes</td></tr>
+          <tr><td>Accounting firm</td><td>USD 500 – 2,000</td><td>Client reminders, no set date</td><td class="num">6</td><td><span class="pill warm">warm</span></td><td>No</td></tr>
+          <tr><td>No company</td><td>Under USD 500</td><td>"hi, info"</td><td class="num">1</td><td><span class="pill cold">cold</span></td><td>No</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="figs">
+    <figure>
+      <img src="img/workflow.jpg" alt="n8n canvas with the six workflow nodes green after a successful run" width="1366" height="551">
+      <figcaption>The workflow in n8n after a full run: every node green and the "true" branch going to Gmail.</figcaption>
+    </figure>
+    <div class="two">
+      <figure>
+        <img src="img/formulario.jpg" alt="Contact form filled in with test data" width="1366" height="551">
+        <figcaption>The form the client sees.</figcaption>
+      </figure>
+      <figure>
+        <img src="img/hoja.jpg" alt="Leads spreadsheet with three scored rows: 8 hot, 6 warm, 1 cold" width="1366" height="551">
+        <figcaption>The spreadsheet with the scored leads.</figcaption>
+      </figure>
+    </div>
+    <figure>
+      <img src="img/correo.png" alt="Alert email with the lead details, a score of 8 out of 10, the reason and the AI-suggested reply" width="679" height="374" style="max-width:680px">
+      <figcaption>The Gmail alert: contact details, score, reason and a draft reply ready to send.</figcaption>
+    </figure>
+    <p class="figcaption" style="font-size:0.9rem;color:var(--muted);margin:0">Screenshots are from the Spanish-language build. The downloadable workflow below is the English version, tested end to end.</p>
+  </section>
+
+  <section class="prose">
+    <h2>Results</h2>
+    <ul class="plain">
+      <li>Each lead is scored and logged in about 3 to 7 seconds.</li>
+      <li>Only valuable leads trigger an alert, so the inbox stays quiet.</li>
+      <li>Every alert includes a draft reply to review and send.</li>
+      <li>It adapts to another business by changing the prompt and the threshold, without touching the rest of the workflow.</li>
+    </ul>
+  </section>
+
+  <p class="prose"><a href="ai-lead-scorer-n8n.json" download>Download the workflow (JSON to import into n8n)</a></p>
+  <p class="note prose">Demo built with test data. The workflow runs on a self-hosted n8n instance and uses Claude Haiku through the Anthropic API.</p>
+</main>
+</body>
+</html>
